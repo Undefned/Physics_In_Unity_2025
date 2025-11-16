@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class CarouselController : MonoBehaviour
 {
@@ -20,67 +22,207 @@ public class CarouselController : MonoBehaviour
 
     [Header("Initial Spin")]
     public float initialSpinForce = 50f; // Начальный "толчок"
-    // private bool isSpinning = false;
 
     [Header("UI References")]
     public TMP_Text angularVelocityText;
     public TMP_Text momentOfInertiaText;
-    public TMP_Text angularMomentumText;
-    // Добавь другие UI-элементы по необходимости
+    public TMP_Text levelText;
+    public Button prevLevel;
+    public Button nextLevel;
+
+    // private Vector3 massObjectOffset;
+    public Vector3 centerOfCarousel;
+
+    [Header("Mass Objects Rotation")]
+    public bool rotateMassesAroundCenter = true;
+    private List<Vector3> initialMassOffsets = new List<Vector3>();
+
 
     void Start()
     {
-        carouselRigidbody = GetComponent<Rigidbody>();
-        // Вычисляем центр масс вручную в начале, чтобы он был точно по центру
-        // UpdateCenterOfMass();
+        SaveInitialOffsets();
+        // Настраиваем кнопки
+        // prevLevel.onClick.AddListener(PrevLevelLoad);
+        // nextLevel.onClick.AddListener(NextLevelLoad);
+        
+        // Получаем Rigidbody если не установлен в инспекторе
+        if (carouselRigidbody == null)
+            carouselRigidbody = GetComponent<Rigidbody>();
+            
         // Загружаем начальный уровень
         LoadLevel(currentLevel);
-
-        // Раскручиваем карусель в начале уровня
-        StartSpinning();
     }
 
     void Update()
     {
-        // Выбор объекта (уже правильно)
+        HandleObjectSelection();
+        HandleObjectMovement();
+        ChangeLevelByPressKeyboard();
+
+        // Вращаем точки крепления грузов вокруг центра
+        if (rotateMassesAroundCenter && carouselRigidbody != null)
+        {
+            RotateMassVisuals();
+            ChangePositionForMassVisual();
+        }
+
+        UpdateUI();
+    }
+    void SaveInitialOffsets()
+    {
+        initialMassOffsets.Clear();
+        foreach (GameObject mass in currentMasses)
+        {
+            if (mass != null && mass.transform.parent != null)
+            {
+                // Сохраняем локальную позицию относительно родителя
+                initialMassOffsets.Add(mass.transform.parent.localPosition);
+            }
+        }
+    }
+
+    void RotateMassVisuals()
+    {
+        float rotationSpeed = carouselRigidbody.angularVelocity.y * Mathf.Rad2Deg;
+        
+        foreach (GameObject mass in currentMasses)
+        {
+            if (mass != null)
+            {
+                // Вращаем только визуальную часть вокруг ее собственной оси
+                mass.transform.Rotate(0, rotationSpeed * Time.deltaTime, 0, Space.Self);
+            }
+        }
+    }
+
+    public void ChangePositionForMassVisual()
+    {
+        if (carouselRigidbody == null) return;
+        
+        // Угол поворота за этот кадр
+        float rotationAngle = carouselRigidbody.angularVelocity.y * Time.deltaTime * Mathf.Rad2Deg;
+        
+        // Создаем поворот вокруг оси Y
+        Quaternion rotation = Quaternion.Euler(0, rotationAngle, 0);
+        
+        // Вращаем каждый груз вокруг указанного центра
+        foreach (GameObject mass in currentMasses)
+        {
+            if (mass != null && mass.transform.parent != null)
+            {
+                Transform massPoint = mass.transform.parent;
+                
+                // Получаем вектор от центра к точке
+                Vector3 directionToCenter = massPoint.position - centerOfCarousel;
+                
+                // Вращаем этот вектор
+                Vector3 rotatedDirection = rotation * directionToCenter;
+                
+                // Вычисляем новую позицию точки
+                Vector3 newPosition = centerOfCarousel + rotatedDirection;
+                
+                // Применяем новую позицию
+                massPoint.position = newPosition;
+            }
+        }
+    }
+    
+    public void ChangeLevelByPressKeyboard()
+    {
+        // Временное управление уровнями с клавиатуры
+        if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
+        {
+            PrevLevelLoad();
+        }
+        if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
+        {
+            NextLevelLoad();
+        }
+    }
+
+    public void HandleObjectSelection()
+    {
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            selectedMassIndex--;
-            if (selectedMassIndex < 0) selectedMassIndex = currentMasses.Count - 1;
+            selectedMassIndex = 0;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
+        }
+        if (Keyboard.current.wKey.wasPressedThisFrame)
+        {
+            selectedMassIndex = 1;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
         }
         if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            selectedMassIndex = (selectedMassIndex + 1) % currentMasses.Count;
+            selectedMassIndex = 2;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
+        }
+    }
+
+    public void HandleObjectMovement()
+    {
+        if (currentMasses.Count == 0 || selectedMassIndex >= currentMasses.Count) return;
+
+        bool moved = false;
+        GameObject selectedMass = currentMasses[selectedMassIndex];
+        
+        // Проверяем, что объект не уничтожен
+        if (selectedMass == null) return;
+        
+        Transform massPoint = selectedMass.transform.parent;
+
+        // Обработка движения
+        if (Keyboard.current.aKey.isPressed)
+        {
+            massPoint.Translate(0, 0, -moveSpeed * Time.deltaTime);
+            moved = true;
+        }
+        if (Keyboard.current.dKey.isPressed)
+        {
+            massPoint.Translate(0, 0, moveSpeed * Time.deltaTime);
+            moved = true;
         }
 
-        // Перемещение выбранного объекта - ИСПРАВЛЕНО
-        if (currentMasses.Count > 0)
+        // Ограничение радиуса и пересчет физики
+        if (moved)
         {
-            GameObject selectedMass = currentMasses[selectedMassIndex];
-            Transform massPoint = selectedMass.transform.parent;
-
-            // ЗАМЕНА: Используем новую систему ввода вместо Input.GetAxis
-            float moveInput = 0f;
-            if (Keyboard.current.aKey.isPressed) moveInput = -1f;
-            if (Keyboard.current.dKey.isPressed) moveInput = 1f;
-
-            // Двигаем точку по радиусу (по локальной оси Z точки крепления)
-            massPoint.Translate(0, 0, moveInput * moveSpeed * Time.deltaTime);
-
-            // Ограничиваем радиус, чтобы груз не улетел
             Vector3 localPos = massPoint.localPosition;
             localPos.z = Mathf.Clamp(localPos.z, 1f, 5f);
             massPoint.localPosition = localPos;
-        }
-
-        // Пересчитываем физику при ЛЮБОМ движении груза
-        if (Keyboard.current.aKey.isPressed || Keyboard.current.dKey.isPressed)
-        {
             UpdateInertiaTensor();
         }
     }
-    void LoadLevel(int level)
+
+    public void PrevLevelLoad()
     {
+        if (currentLevel > 1) 
+        {
+            currentLevel--;
+            LoadLevel(currentLevel);
+        }
+    }
+
+    public void NextLevelLoad()
+    {
+        if (currentLevel < 3) 
+        {
+            currentLevel++;
+            LoadLevel(currentLevel);
+            Debug.Log(currentLevel);
+        }
+    }
+
+    public void LoadLevel(int level)
+    {
+        Debug.Log($"Loading level {level}");
+
+        // Останавливаем текущее вращение
+        if (carouselRigidbody != null)
+        {
+            carouselRigidbody.angularVelocity = Vector3.zero;
+            carouselRigidbody.linearVelocity = Vector3.zero;
+        }
+
         // Уничтожаем старые грузы
         foreach (GameObject mass in currentMasses)
         {
@@ -88,104 +230,109 @@ public class CarouselController : MonoBehaviour
         }
         currentMasses.Clear();
 
-        // В зависимости от уровня, создаем грузы в разных позициях
+        // Создаем грузы в зависимости от уровня
         switch (level)
         {
             case 1:
                 // Создаем 2 груза симметрично
-                SpawnMassAtPoint(0);
-                SpawnMassAtPoint(1);
+                SpawnMassAtPoint(0); // левый центр
+                SpawnMassAtPoint(1); // правый центр
                 break;
             case 2:
-                // Создаем 4 груза равномерно
-                for (int i = 0; i < 4; i++) SpawnMassAtPoint(i);
+                SpawnMassAtPoint(2); // правый край
+                SpawnMassAtPoint(3); // левый край
                 break;
             case 3:
                 // Создаем асимметрично: 2 слева, 1 справа
-                SpawnMassAtPoint(0); // Предположим, это слева
-                SpawnMassAtPoint(1); // Слева
-                SpawnMassAtPoint(3); // Справа
+                SpawnMassAtPoint(0); // левый центр
+                SpawnMassAtPoint(1); // правый центр
+                SpawnMassAtPoint(2); // правый край
                 break;
         }
-        // После расстановки грузов ПЕРЕСЧИТЫВАЕМ тензор инерции!
+
+        // Сбрасываем выбор объекта
+        selectedMassIndex = 0;
+
+        // Пересчитываем физику и раскручиваем
         UpdateInertiaTensor();
+        SaveInitialOffsets();
+        StartSpinning();
     }
 
-    void SpawnMassAtPoint(int pointIndex)
+    public void SpawnMassAtPoint(int pointIndex)
     {
-        if (pointIndex < massPoints.Count && massPrefabs.Count > 0)
+        if (pointIndex < massPoints.Count && massPrefabs.Count > 0 && massPoints[pointIndex] != null)
         {
-            GameObject newMass = Instantiate(massPrefabs[0], massPoints[pointIndex].position, massPoints[pointIndex].rotation, massPoints[pointIndex]);
+            GameObject newMass = Instantiate(massPrefabs[0], massPoints[pointIndex].position, 
+                                           massPoints[pointIndex].rotation, massPoints[pointIndex]);
             currentMasses.Add(newMass);
+            Debug.Log($"Spawned mass at point {pointIndex}");
+        }
+        else
+        {
+            Debug.LogWarning($"Cannot spawn mass at point {pointIndex}");
         }
     }
 
-    void UpdateInertiaTensor()
+    public void UpdateInertiaTensor()
     {
-        // 1. Отключаем автоматический расчет тензора
+        if (carouselRigidbody == null) return;
+
         carouselRigidbody.automaticCenterOfMass = false;
         carouselRigidbody.automaticInertiaTensor = false;
 
-        // 2. Рассчитываем новый центр масс (в локальных координатах карусели)
+        // Расчет центра масс
         Vector3 centerOfMass = Vector3.zero;
         float totalMass = carouselRigidbody.mass;
 
-        // Учитываем массу платформы (ее "точка" - это центр)
+        // Учитываем массу платформы
         centerOfMass += carouselRigidbody.mass * Vector3.zero;
 
         // Учитываем массы всех грузов
         foreach (GameObject mass in currentMasses)
         {
-            // Предположим, у каждого груза есть скрипт MassObject с полем massValue
+            if (mass == null) continue;
+            
             MassObject massComp = mass.GetComponent<MassObject>();
             if (massComp != null)
             {
-                // Преобразуем позицию груза в ЛОКАЛЬНУЮ позицию относительно Carousel
                 Vector3 localPos = transform.InverseTransformPoint(mass.transform.position);
                 centerOfMass += massComp.massValue * localPos;
                 totalMass += massComp.massValue;
             }
         }
-        centerOfMass /= totalMass;
+
+        if (totalMass > 0)
+            centerOfMass /= totalMass;
+            
         carouselRigidbody.centerOfMass = centerOfMass;
 
-        // 3. Рассчитываем тензор инерции (упрощенно, для точечных масс)
-        // I = sum( m_i * (r_i^2 * E - r_i * r_i) ) - общая формула, но мы упростим до диагонального
-        float Ixx = 0f;
-        float Iyy = 0f;
-        float Izz = 0f;
-
-        // Момент инерции платформы (возьмем как у диска)
-        float platformI = carouselRigidbody.mass * 5f; // Эмпирическая константа
-
-        Ixx += platformI;
-        Iyy += platformI;
-        Izz += platformI;
+        // Расчет тензора инерции
+        float Ixx = carouselRigidbody.mass * 5f; // Момент инерции платформы
+        float Iyy = carouselRigidbody.mass * 5f;
+        float Izz = carouselRigidbody.mass * 5f;
 
         foreach (GameObject mass in currentMasses)
         {
+            if (mass == null) continue;
+            
             MassObject massComp = mass.GetComponent<MassObject>();
             if (massComp != null)
             {
-                // Позиция груза относительно НОВОГО центра масс
                 Vector3 r = transform.InverseTransformPoint(mass.transform.position) - centerOfMass;
                 float m = massComp.massValue;
 
-                // Формулы из задания (для точечных масс)
                 Ixx += m * (r.y * r.y + r.z * r.z);
                 Iyy += m * (r.x * r.x + r.z * r.z);
                 Izz += m * (r.x * r.x + r.y * r.y);
             }
         }
 
-        // 4. Создаем и применяем тензор инерции (в главных осях, как Vector3)
-        // Inertia Tensor в Unity представлен как диагональная матрица [Ixx, Iyy, Izz]
         carouselRigidbody.inertiaTensor = new Vector3(Ixx, Iyy, Izz);
-        // Важно: также нужно задать rotation тензора. Для простоты - единичная.
         carouselRigidbody.inertiaTensorRotation = Quaternion.identity;
     }
 
-    void OnDrawGizmos()
+    public void OnDrawGizmos()
     {
         if (carouselRigidbody == null) return;
 
@@ -195,42 +342,27 @@ public class CarouselController : MonoBehaviour
 
         // Рисуем вектор угловой скорости
         Gizmos.color = Color.blue;
-        Gizmos.DrawRay(carouselRigidbody.worldCenterOfMass, carouselRigidbody.angularVelocity);
+        Gizmos.DrawRay(carouselRigidbody.worldCenterOfMass, carouselRigidbody.angularVelocity * 2f);
     }
 
-    void FixedUpdate()
+    public void UpdateUI()
     {
-        UpdateUI();
-    }
+        if (angularVelocityText != null && carouselRigidbody != null)
+            angularVelocityText.text = $"Angular Velocity: {carouselRigidbody.angularVelocity.ToString("F2")}";
 
-    void UpdateUI()
-    {
-        if (angularVelocityText != null)
-            angularVelocityText.text = "Angular Velocity: " + carouselRigidbody.angularVelocity.ToString("F2");
+        if (momentOfInertiaText != null && carouselRigidbody != null)
+            momentOfInertiaText.text = $"Inertia Tensor: {carouselRigidbody.inertiaTensor.ToString("F2")}";
 
-        if (momentOfInertiaText != null)
-            momentOfInertiaText.text = "Inertia Tensor: " + carouselRigidbody.inertiaTensor.ToString("F2");
-
-        if (angularMomentumText != null)
-        {
-            Vector3 inertiaTensor = carouselRigidbody.inertiaTensor;
-            Vector3 angularVelocity = carouselRigidbody.angularVelocity;
-            
-            // Поэлементное умножение (Ixx * ωx, Iyy * ωy, Izz * ωz)
-            Vector3 angularMomentum = new Vector3(
-                inertiaTensor.x * angularVelocity.x,
-                inertiaTensor.y * angularVelocity.y,
-                inertiaTensor.z * angularVelocity.z
-            );
-            
-            angularMomentumText.text = "Angular Momentum: " + angularMomentum.ToString("F2");
-        }
+        if (levelText != null)
+            levelText.text = $"Level: {currentLevel}";
     }
     
-    void StartSpinning()
+    public void StartSpinning()
     {
-        // Прикладываем начальный вращательный импульс
-        carouselRigidbody.AddTorque(0, initialSpinForce, 0, ForceMode.Impulse);
-        // isSpinning = true;
+        if (carouselRigidbody != null)
+        {
+            carouselRigidbody.AddTorque(0, initialSpinForce, 0, ForceMode.Impulse);
+            Debug.Log("Started spinning");
+        }
     }
 }

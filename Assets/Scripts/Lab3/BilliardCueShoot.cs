@@ -17,7 +17,7 @@ public class BilliardCueShoot : MonoBehaviour
             collider.isTrigger = true;
         }
     }
-  
+
     public void OnTriggerEnter(Collider other) {
         if (other.CompareTag(cueBallTag)) {
             Rigidbody ballRb = other.GetComponent<Rigidbody>();
