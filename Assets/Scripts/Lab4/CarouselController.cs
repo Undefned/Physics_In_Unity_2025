@@ -8,42 +8,42 @@ using UnityEngine.UI;
 public class CarouselController : MonoBehaviour
 {
     [Header("Physics References")]
-    public Rigidbody carouselRigidbody;
-    public List<Transform> massPoints; // Список точек крепления грузов
-    public List<GameObject> massPrefabs; // Префабы грузов
+    public Rigidbody carouselRigidbody;                    // Физическое тело карусели
+    public List<Transform> massPoints;                     // Точки крепления грузов (привязаны к кубам)
+    public List<GameObject> massPrefabs;                   // Префабы визуальных моделей грузов
 
     [Header("Level Settings")]
-    public int currentLevel = 1;
-    private List<GameObject> currentMasses = new List<GameObject>(); // Активные грузы
+    public int currentLevel = 1;                           // Текущий уровень (1, 2, 3)
+    private List<GameObject> currentMasses = new List<GameObject>(); // Активные грузы на сцене
 
     [Header("Control Settings")]
-    public float moveSpeed = 2.0f;
-    private int selectedMassIndex = 0;
+    public float moveSpeed = 2.0f;                         // Скорость движения грузов
+    private int selectedMassIndex = 0;                     // Индекс выбранного груза (0, 1, 2)
 
     [Header("Initial Spin")]
-    public float initialSpinForce = 50f; // Начальный "толчок"
+    public float initialSpinForce = 5f;                    // Начальный импульс вращения
 
     [Header("UI References")]
-    public TMP_Text angularVelocityText;
-    public TMP_Text momentOfInertiaText;
-    public TMP_Text levelText;
-    public Button prevLevel;
-    public Button nextLevel;
+    public TMP_Text angularVelocityText;                   // Текст угловой скорости
+    public TMP_Text momentOfInertiaText;                   // Текст момента инерции
+    public TMP_Text levelText;                             // Текст текущего уровня
+    public Vector3 centerOfCarousel;                       // Центр вращения карусели
 
-    // private Vector3 massObjectOffset;
-    public Vector3 centerOfCarousel;
+    [Header("Mass Objects")]
+    public bool rotateMassesAroundCenter = true;           // Включить вращение грузов
 
-    [Header("Mass Objects Rotation")]
-    public bool rotateMassesAroundCenter = true;
-    private List<Vector3> initialMassOffsets = new List<Vector3>();
+    public Material originalMaterial;                      // Стандартный материал груза
+    public Material selectedMaterial;                      // Материал выделенного груза
+    private List<Vector3> initialMassPointPositions = new List<Vector3>(); // Начальные позиции точек крепления(не изменяется)
 
 
     void Start()
     {
-        SaveInitialOffsets();
-        // Настраиваем кнопки
-        // prevLevel.onClick.AddListener(PrevLevelLoad);
-        // nextLevel.onClick.AddListener(NextLevelLoad);
+        initialMassPointPositions.Clear();
+        for (int i = 0; i < massPoints.Count; i++)
+        {
+            initialMassPointPositions.Add(massPoints[i].localPosition); // Сохраняем локальные позиции
+        }
         
         // Получаем Rigidbody если не установлен в инспекторе
         if (carouselRigidbody == null)
@@ -67,18 +67,6 @@ public class CarouselController : MonoBehaviour
         }
 
         UpdateUI();
-    }
-    void SaveInitialOffsets()
-    {
-        initialMassOffsets.Clear();
-        foreach (GameObject mass in currentMasses)
-        {
-            if (mass != null && mass.transform.parent != null)
-            {
-                // Сохраняем локальную позицию относительно родителя
-                initialMassOffsets.Add(mass.transform.parent.localPosition);
-            }
-        }
     }
 
     void RotateMassVisuals()
@@ -157,6 +145,16 @@ public class CarouselController : MonoBehaviour
             selectedMassIndex = 2;
             Debug.Log($"Selected mass: {selectedMassIndex}");
         }
+
+        if (selectedMassIndex < currentMasses.Count)
+        {
+            currentMasses[selectedMassIndex].GetComponent<Renderer>().material = selectedMaterial;
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == selectedMassIndex) continue;
+                currentMasses[i].GetComponent<Renderer>().material = originalMaterial;
+            }
+        }
     }
 
     public void HandleObjectMovement()
@@ -215,6 +213,7 @@ public class CarouselController : MonoBehaviour
     public void LoadLevel(int level)
     {
         Debug.Log($"Loading level {level}");
+        ResetMassPointsPositions();
 
         // Останавливаем текущее вращение
         if (carouselRigidbody != null)
@@ -255,7 +254,7 @@ public class CarouselController : MonoBehaviour
 
         // Пересчитываем физику и раскручиваем
         UpdateInertiaTensor();
-        SaveInitialOffsets();
+        // SaveInitialOffsets();
         StartSpinning();
     }
 
@@ -308,9 +307,9 @@ public class CarouselController : MonoBehaviour
         carouselRigidbody.centerOfMass = centerOfMass;
 
         // Расчет тензора инерции
-        float Ixx = carouselRigidbody.mass * 5f; // Момент инерции платформы
-        float Iyy = carouselRigidbody.mass * 5f;
-        float Izz = carouselRigidbody.mass * 5f;
+        float Ixx = carouselRigidbody.mass * 10f; // Момент инерции платформы
+        float Iyy = carouselRigidbody.mass * 10f;
+        float Izz = carouselRigidbody.mass * 10f;
 
         foreach (GameObject mass in currentMasses)
         {
@@ -363,6 +362,15 @@ public class CarouselController : MonoBehaviour
         {
             carouselRigidbody.AddTorque(0, initialSpinForce, 0, ForceMode.Impulse);
             Debug.Log("Started spinning");
+        }
+    }
+
+    private void ResetMassPointsPositions()
+    {
+        // Сбрасываем на сохраненные ЛОКАЛЬНЫЕ позиции
+        for (int i = 0; i < massPoints.Count && i < initialMassPointPositions.Count; i++)
+        {
+            massPoints[i].localPosition = initialMassPointPositions[i];
         }
     }
 }
