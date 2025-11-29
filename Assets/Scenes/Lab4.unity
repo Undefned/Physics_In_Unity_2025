@@ -1637,8 +1637,8 @@ MonoBehaviour:
   - {fileID: 1033890952}
   massPrefabs:
   - {fileID: 1875548916098162576, guid: ae29d3ed146ce944fa7f5d2100f85d8f, type: 3}
-  - {fileID: 1875548916098162576, guid: fa1cf630023572a42b65aa1d13c8999a, type: 3}
-  - {fileID: 1875548916098162576, guid: f494bc455e8735e4b94d0ca9876383c9, type: 3}
+  - {fileID: 1875548916098162576, guid: ae29d3ed146ce944fa7f5d2100f85d8f, type: 3}
+  - {fileID: 1875548916098162576, guid: ae29d3ed146ce944fa7f5d2100f85d8f, type: 3}
   currentLevel: 1
   moveSpeed: 2
   initialSpinForce: 500

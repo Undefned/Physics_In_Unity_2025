@@ -38,7 +38,6 @@ public class CarouselController : MonoBehaviour
     public Material selectedMaterial;                      // Материал выделенного груза
     private List<Vector3> initialMassPointPositions = new List<Vector3>(); // Начальные позиции точек крепления(не изменяется)
 
-
     void Start()
     {
         initialMassPointPositions.Clear();
@@ -62,141 +61,19 @@ public class CarouselController : MonoBehaviour
         ChangeLevelByPressKeyboard();
 
         // Вращаем точки крепления грузов вокруг центра
-        if (rotateMassesAroundCenter && carouselRigidbody != null)
-        {
+        // if (rotateMassesAroundCenter && carouselRigidbody != null)
+        // {
             // RotateMassVisuals();
             // ChangePositionForMassVisual();
-            ChangePositionForMassVisualViaCenter();
-        }
+            // ChangePositionForMassVisualRelativeToTheCenter();
+        // }
 
         UpdateUI();
-    }
-
-    // void RotateMassVisuals()
-    // {
-    //     float rotationSpeed = carouselRigidbody.angularVelocity.y * Mathf.Rad2Deg;
-        
-    //     foreach (GameObject mass in currentMasses)
-    //     {
-    //         if (mass != null)
-    //         {
-    //             // Вращаем только визуальную часть вокруг ее собственной оси
-    //             mass.transform.Rotate(0, rotationSpeed * Time.deltaTime, 0, Space.Self);
-    //         }
-    //     }
-    // }
-
-    // public void ChangePositionForMassVisual()
-    // {
-    //     if (carouselRigidbody == null) return;
-        
-    //     // Угол поворота за этот кадр
-    //     float rotationAngle = carouselRigidbody.angularVelocity.y * Time.deltaTime * Mathf.Rad2Deg;
-        
-    //     // Создаем поворот вокруг оси Y
-    //     Quaternion rotation = Quaternion.Euler(0, rotationAngle, 0);
-        
-    //     // Вращаем каждый груз вокруг указанного центра
-    //     foreach (GameObject mass in currentMasses)
-    //     {
-    //         if (mass != null && mass.transform.parent != null)
-    //         {
-    //             Transform massPoint = mass.transform.parent;
-                
-    //             // Получаем вектор от центра к точке
-    //             Vector3 directionToCenter = massPoint.position - centerOfCarousel;
-                
-    //             // Вращаем этот вектор
-    //             Vector3 rotatedDirection = rotation * directionToCenter;
-                
-    //             // Вычисляем новую позицию точки
-    //             Vector3 newPosition = centerOfCarousel + rotatedDirection;
-                
-    //             // Применяем новую позицию
-    //             massPoint.position = newPosition;
-    //         }
-    //     }
-    // }
-
-    private float GetCenterForMassesVisual(GameObject centerObject)
-    {
-        return centerObject.transform.position.x;
     }
 
     private float FindRealPlatformCenter()
     {
         return 0.0f; // fuck, just kill me
-    }
-
-    public void ChangePositionForMassVisualViaCenter()
-    {
-        if (carouselRigidbody == null) return;
-        
-        // Угол поворота за этот кадр
-        // float rotationAngle = carouselRigidbody.angularVelocity.y * Time.deltaTime * Mathf.Rad2Deg;
-        
-        // Создаем поворот вокруг оси Y
-        // Quaternion rotation = Quaternion.Euler(0, rotationAngle, 0);
-        
-        // Вращаем каждый груз вокруг указанного центра
-        foreach (GameObject mass in currentMasses)
-        {
-            if (mass != null && mass.transform.parent != null)
-            {
-                Transform massPoint = mass.transform.parent;
-                
-                // Получаем вектор от центра к точке
-                Vector3 directionToCenter = massPoint.position - centerOfCarousel;
-                
-                // Вычисляем новую позицию точки
-                Vector3 newPosition = centerOfCarousel + directionToCenter;
-                
-                // Применяем новую позицию
-                massPoint.position = newPosition;
-            }
-        }
-    }
-    
-    private void ChangeLevelByPressKeyboard()
-    {
-        // Временное управление уровнями с клавиатуры
-        if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
-        {
-            PrevLevelLoad();
-        }
-        if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
-        {
-            NextLevelLoad();
-        }
-    }
-
-    private void HandleObjectSelection()
-    {
-        if (Keyboard.current.qKey.wasPressedThisFrame)
-        {
-            selectedMassIndex = 0;
-            Debug.Log($"Selected mass: {selectedMassIndex}");
-        }
-        if (Keyboard.current.wKey.wasPressedThisFrame)
-        {
-            selectedMassIndex = 1;
-            Debug.Log($"Selected mass: {selectedMassIndex}");
-        }
-        if (Keyboard.current.eKey.wasPressedThisFrame)
-        {
-            selectedMassIndex = 2;
-            Debug.Log($"Selected mass: {selectedMassIndex}");
-        }
-
-        if (selectedMassIndex < currentMasses.Count)
-        {
-            currentMasses[selectedMassIndex].GetComponent<Renderer>().material = selectedMaterial;
-            for (int i = 0; i < 2; i++)
-            {
-                if (i == selectedMassIndex) continue;
-                currentMasses[i].GetComponent<Renderer>().material = originalMaterial;
-            }
-        }
     }
 
     private void HandleObjectMovement()
@@ -206,7 +83,6 @@ public class CarouselController : MonoBehaviour
         bool moved = false;
         GameObject selectedMass = currentMasses[selectedMassIndex];
         
-        // Проверяем, что объект не уничтожен
         if (selectedMass == null) return;
         
         Transform massPoint = selectedMass.transform.parent;
@@ -229,6 +105,10 @@ public class CarouselController : MonoBehaviour
             Vector3 localPos = massPoint.localPosition;
             localPos.x = Mathf.Clamp(localPos.x, -0.6f, 0.6f);
             massPoint.localPosition = localPos;
+            
+            // обновляем расстояние для физики
+            currentMassesDistance[selectedMassIndex] = Mathf.Abs(massPoint.localPosition.x);
+            
             UpdateInertiaTensor();
         }
     }
@@ -305,12 +185,20 @@ public class CarouselController : MonoBehaviour
         if (pointIndex < massPoints.Count && massPrefabs.Count > 0 && massPoints[pointIndex] != null)
         {
             GameObject newMass = Instantiate(massPrefabs[0], massPoints[pointIndex].position, 
-                                           massPoints[pointIndex].rotation, massPoints[pointIndex]);
+                                        massPoints[pointIndex].rotation, massPoints[pointIndex]);
             currentMasses.Add(newMass);
 
-            float distance = 0.0f; //@FIX
+            // РАСЧЕТ РАССТОЯНИЯ ОТ ЦЕНТРА (по X)
+            float distance = Mathf.Abs(massPoints[pointIndex].localPosition.x); // Берем абсолютное значение
             currentMassesDistance.Add(distance);
-            Debug.Log($"Spawned mass at point {pointIndex}");
+            
+            Debug.Log($"Spawned mass at point {pointIndex}, distance from center: {distance}");
+
+            MassObject massComp = newMass.GetComponent<MassObject>();
+            if (massComp != null)
+            {
+                Debug.Log($"Mass value: {massComp.massValue}");
+            }
         }
         else
         {
@@ -325,54 +213,37 @@ public class CarouselController : MonoBehaviour
         carouselRigidbody.automaticCenterOfMass = false;
         carouselRigidbody.automaticInertiaTensor = false;
 
-        // Расчет центра масс
-        Vector3 centerOfMass = Vector3.zero;
-        float totalMass = carouselRigidbody.mass;
-
-        // Учитываем массу платформы
-        centerOfMass += carouselRigidbody.mass * Vector3.zero;
-
-        // Учитываем массы всех грузов
-        foreach (GameObject mass in currentMasses)
-        {
-            if (mass == null) continue;
-            
-            MassObject massComp = mass.GetComponent<MassObject>();
-            if (massComp != null)
-            {
-                Vector3 localPos = transform.InverseTransformPoint(mass.transform.position);
-                centerOfMass += massComp.massValue * localPos;
-                totalMass += massComp.massValue;
-            }
-        }
-
-        if (totalMass > 0)
-            centerOfMass /= totalMass;
-            
-        carouselRigidbody.centerOfMass = centerOfMass;
+        // Упрощенный расчет центра масс (раз центр известен = 0)
+        carouselRigidbody.centerOfMass = Vector3.zero;
 
         // Расчет тензора инерции
-        float Ixx = carouselRigidbody.mass * 10f; // Момент инерции платформы
-        float Iyy = carouselRigidbody.mass * 10f;
-        float Izz = carouselRigidbody.mass * 10f;
-
-        foreach (GameObject mass in currentMasses)
+        float I_platform = carouselRigidbody.mass * 1f; 
+        
+        float I_masses = 0f;
+        for (int i = 0; i < currentMasses.Count; i++)
         {
-            if (mass == null) continue;
+            if (currentMasses[i] == null) continue;
             
-            MassObject massComp = mass.GetComponent<MassObject>();
+            MassObject massComp = currentMasses[i].GetComponent<MassObject>();
             if (massComp != null)
             {
-                Vector3 r = transform.InverseTransformPoint(mass.transform.position) - centerOfMass;
+                // ИСПОЛЬЗУЙ ТЕКУЩИЕ РАССТОЯНИЯ ИЗ СПИСКА!
+                float distance = currentMassesDistance[i];
                 float m = massComp.massValue;
-
-                Ixx += m * (r.y * r.y + r.z * r.z);
-                Iyy += m * (r.x * r.x + r.z * r.z);
-                Izz += m * (r.x * r.x + r.y * r.y);
+                
+                I_masses += m * distance * distance;
+                
+                // ДЛЯ ОТЛАДКИ
+                Debug.Log($"Mass {i}: distance={distance:F2}, mass={m}, I_add={m * distance * distance:F2}");
             }
         }
 
-        carouselRigidbody.inertiaTensor = new Vector3(Ixx, Iyy, Izz);
+        float I_total = I_platform + I_masses;
+        
+        // ОТЛАДКА
+        Debug.Log($"Total I: {I_total:F2} (Platform: {I_platform:F2} + Masses: {I_masses:F2})");
+        
+        carouselRigidbody.inertiaTensor = new Vector3(I_total, I_total, I_total);
         carouselRigidbody.inertiaTensorRotation = Quaternion.identity;
     }
 
@@ -418,4 +289,115 @@ public class CarouselController : MonoBehaviour
             massPoints[i].localPosition = initialMassPointPositions[i];
         }
     }
+
+    private void ChangeLevelByPressKeyboard()
+    {
+        // управление уровнями с клавиатуры
+        if (Keyboard.current.leftArrowKey.wasPressedThisFrame)
+        {
+            PrevLevelLoad();
+        }
+        if (Keyboard.current.rightArrowKey.wasPressedThisFrame)
+        {
+            NextLevelLoad();
+        }
+    }
+
+    private void HandleObjectSelection()
+    {
+        if (Keyboard.current.qKey.wasPressedThisFrame)
+        {
+            selectedMassIndex = 0;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
+        }
+        if (Keyboard.current.wKey.wasPressedThisFrame)
+        {
+            selectedMassIndex = 1;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
+        }
+        if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            selectedMassIndex = 2;
+            Debug.Log($"Selected mass: {selectedMassIndex}");
+        }
+
+        if (selectedMassIndex < currentMasses.Count)
+        {
+            currentMasses[selectedMassIndex].GetComponent<Renderer>().material = selectedMaterial;
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == selectedMassIndex) continue;
+                currentMasses[i].GetComponent<Renderer>().material = originalMaterial;
+            }
+        }
+    }
+
+    // public void ChangePositionForMassVisualRelativeToTheCenter()
+    // {
+    //     if (carouselRigidbody == null) return;
+        
+    //     // Вращаем каждый груз вокруг указанного центра
+    //     foreach (GameObject mass in currentMasses)
+    //     {
+    //         if (mass != null && mass.transform.parent != null)
+    //         {
+    //             Transform massPoint = mass.transform.parent;
+                
+    //             // Получаем вектор от центра к точке
+    //             Vector3 directionToCenter = massPoint.position - centerOfCarousel;
+                
+    //             // Вычисляем новую позицию точки
+    //             Vector3 newPosition = centerOfCarousel + directionToCenter;
+                
+    //             // Применяем новую позицию
+    //             massPoint.position = newPosition;
+    //         }
+    //     }
+    // }
+
+    // void RotateMassVisuals()
+    // {
+    //     float rotationSpeed = carouselRigidbody.angularVelocity.y * Mathf.Rad2Deg;
+        
+    //     foreach (GameObject mass in currentMasses)
+    //     {
+    //         if (mass != null)
+    //         {
+    //             // Вращаем только визуальную часть вокруг ее собственной оси
+    //             mass.transform.Rotate(0, rotationSpeed * Time.deltaTime, 0, Space.Self);
+    //         }
+    //     }
+    // }
+
+    // public void ChangePositionForMassVisual()
+    // {
+    //     if (carouselRigidbody == null) return;
+        
+    //     // Угол поворота за этот кадр
+    //     float rotationAngle = carouselRigidbody.angularVelocity.y * Time.deltaTime * Mathf.Rad2Deg;
+        
+    //     // Создаем поворот вокруг оси Y
+    //     Quaternion rotation = Quaternion.Euler(0, rotationAngle, 0);
+        
+    //     // Вращаем каждый груз вокруг указанного центра
+    //     foreach (GameObject mass in currentMasses)
+    //     {
+    //         if (mass != null && mass.transform.parent != null)
+    //         {
+    //             Transform massPoint = mass.transform.parent;
+                
+    //             // Получаем вектор от центра к точке
+    //             Vector3 directionToCenter = massPoint.position - centerOfCarousel;
+                
+    //             // Вращаем этот вектор
+    //             Vector3 rotatedDirection = rotation * directionToCenter;
+                
+    //             // Вычисляем новую позицию точки
+    //             Vector3 newPosition = centerOfCarousel + rotatedDirection;
+                
+    //             // Применяем новую позицию
+    //             massPoint.position = newPosition;
+    //         }
+    //     }
+    // }
 }
