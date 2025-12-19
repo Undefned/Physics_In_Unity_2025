@@ -272,7 +272,7 @@ public class CarouselController : MonoBehaviour
             angularVelocityText.text = $"Angular Velocity: {carouselRigidbody.angularVelocity.ToString("F2")}";
 
         if (momentOfInertiaText != null && carouselRigidbody != null)
-            momentOfInertiaText.text = $"Inertia Tensor: {carouselRigidbody.inertiaTensor.ToString("F2")}";
+            momentOfInertiaText.text = $"Inertia Tensor: {carouselRigidbody.inertiaTensor.x.ToString("F2")}";
 
         if (levelText != null)
             levelText.text = $"Level: {currentLevel}";

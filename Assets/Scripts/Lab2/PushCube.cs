@@ -58,7 +58,7 @@ public class PushCube : MonoBehaviour
 
         // Устанавливаем начальные значения
         playerForceInput.text = playerSpeed.ToString("F1");
-        forceToPushInput.text = "30"; // Сила толчка по умолчанию
+        forceToPushInput.text = "1"; // Сила толчка по умолчанию
 
         // Загружаем первый куб
         LoadCubePreset(currentCubeIndex);

@@ -11,6 +11,7 @@ TagManager:
   - BilliardBall
   - CueBall
   - BilliardPocket
+  - Particle
   layers:
   - Default
   - TransparentFX
