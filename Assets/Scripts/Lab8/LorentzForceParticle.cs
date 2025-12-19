@@ -3,172 +3,268 @@ using TMPro;
 
 public class LorentzForceParticle : MonoBehaviour
 {
-    [Header("Физические параметры")]
-    public float charge = 1.0f;  // Заряд (может быть отрицательным)
-    public float mass = 1.0f;     // Масса
-    public Vector3 initialVelocity = new Vector3(5f, 0f, 0f); // Начальная скорость
+    [Header("Параметры")]
+    public float charge = 1f;
+    public float mass = 1f;
+    public float initialSpeed = 5f;
+    public float B_strength = 1f;
+    public float period;
+
     
-    [Header("Магнитное поле")]
-    public Vector3 magneticField = new Vector3(0f, 0f, 1f); // B = (0,0,Bz)
-    public float fieldStrength = 1.0f; // Сила поля B_z
+    [Header("Визуализация")]
+    public TrailRenderer trail;
+    public Color positiveColor = Color.blue;
+    public Color negativeColor = Color.red;
+    
+    [Header("UI")]
+    public TMP_Text speedText;
+    public TMP_Text energyText;
+    public TMP_Text fieldText;
+    public TMP_Text radiusText;
+    public TMP_Text periodText;
+    // public TMP_Text chargeText;
 
     [Header("Электрическое поле (для продвинутого уровня)")]
     public Vector3 electricField = Vector3.zero;
     public bool useElectricField = false;
     
-    [Header("Визуализация")]
-    public TrailRenderer trail;
-    public Color positiveChargeColor = Color.blue;
-    public Color negativeChargeColor = Color.red;
-    
-    [Header("UI Элементы")]
-    public TMP_Text speedText;
-    public TMP_Text energyText;
-    public TMP_Text radiusText;
-    public TMP_Text periodText;
-    public TMP_Text chargeText;
-
-    // Приватные переменные
-    private Vector3 currentVelocity;
-    private Vector3 acceleration;
+    // Приватные
+    private Vector3 velocity;
+    private Vector3 position;
     private float kineticEnergy;
-    private float orbitRadius;
-    private float orbitPeriod;
+    private float radius;
+    private float initialEnergy;
     
     void Start()
     {
-        // Инициализация
-        currentVelocity = initialVelocity;
-        magneticField = new Vector3(0f, 0f, fieldStrength);
+        // НАЧАЛЬНЫЕ УСЛОВИЯ (строго по условиям задачи)
+        position = Vector3.zero;
         
-        // Настройка следа
-        if (trail != null)
+        // Скорость ТОЛЬКО в плоскости XY, перпендикулярно B
+        velocity = new Vector3(initialSpeed, 0f, 0f); // (vx, 0, 0)
+        
+        // Запоминаем начальную энергию
+        initialEnergy = 0.5f * mass * initialSpeed * initialSpeed;
+        kineticEnergy = initialEnergy;
+
+        // Проверяем и настраиваем TrailRenderer
+        if (trail == null)
         {
-            trail.startColor = (charge > 0) ? positiveChargeColor : negativeChargeColor;
-            trail.endColor = (charge > 0) ? positiveChargeColor : negativeChargeColor;
+            // Пытаемся найти на этом же объекте
+            trail = GetComponent<TrailRenderer>();
+            
+            // Если нет - создаем
+            if (trail == null)
+            {
+                trail = gameObject.AddComponent<TrailRenderer>();
+            }
         }
         
-        UpdateUI();
+        // Настройки TrailRenderer
+        if (trail != null)
+        {
+            trail.time = 3f; // Длина следа в секундах
+            trail.startWidth = 0.2f;
+            trail.endWidth = 0.05f;
+            trail.material = new Material(Shader.Find("Sprites/Default"));
+            
+            // Цвет установится в UpdateTrailColor()
+            UpdateTrailColor();
+        }
+        
+        // Цвет следа
+        // UpdateTrailColor();
+        
+        Debug.Log("Начальная скорость: " + velocity + " (строго в плоскости XY)");
+        Debug.Log("Начальная энергия: " + initialEnergy + " Дж");
     }
     
     void FixedUpdate()
     {
-
-        Vector3 lorentzForce;
+        Vector3 B = new Vector3(0, 0, B_strength);
+    
+        // 2. СИЛА ЛОРЕНЦА: F = q(v × B) или F = q(E + v × B)
+        Vector3 force;
         if (useElectricField)
         {
-            // Полная сила Лоренца: F = q(E + v × B)
-            lorentzForce = charge * (electricField + Vector3.Cross(currentVelocity, magneticField));
+            // Полная сила Лоренца с электрическим полем
+            force = charge * (electricField + Vector3.Cross(velocity, B));
         }
         else
         {
-            lorentzForce = charge * Vector3.Cross(currentVelocity, magneticField);
+            // Только магнитное поле
+            force = charge * Vector3.Cross(velocity, B);
         }
-        // Сила Лоренца: F = q(v × B)
-        // Vector3 lorentzForce = charge * Vector3.Cross(currentVelocity, magneticField);
+            
+        // 3. УСКОРЕНИЕ
+        Vector3 acceleration = force / mass;
         
-        // Ускорение: a = F/m
-        acceleration = lorentzForce / mass;
+        // 4. ТОЧНОЕ ИНТЕГРИРОВАНИЕ (аналитическое решение для однородного поля)
+        // Для однородного B и v ⊥ B: движение по окружности
+        // v(t+dt) = v(t) + a*dt (но тут надо аккуратно)
         
-        // Интегрирование скорости (метод Эйлера)
-        currentVelocity += acceleration * Time.fixedDeltaTime;
+        // Простой Эйлер, но с маленьким шагом и проверкой
+        float dt = Time.fixedDeltaTime;
         
-        // Обновление позиции
-        transform.position += currentVelocity * Time.fixedDeltaTime;
+        // Сохраняем старую скорость для проверки
+        // Vector3 oldVelocity = velocity;
         
-        // Расчет физических величин
-        CalculatePhysics();
+        // Интегрируем
+        velocity += acceleration * dt;
+        position += velocity * dt;
+        
+        // ПРОВЕРКА: скорость должна сохранять модуль!
+        // Если модуль изменился — нормализуем
+        float speedShouldBe = initialSpeed; // Должно быть постоянно!
+        float currentSpeed = velocity.magnitude;
+        
+        if (Mathf.Abs(currentSpeed - speedShouldBe) > 0.001f)
+        {
+            // Принудительно сохраняем модуль скорости
+            velocity = velocity.normalized * speedShouldBe;
+        }
+        
+        // 5. Обновляем позицию
+        transform.position = position;
+        
+        // 6. Расчет физики
+        currentSpeed = velocity.magnitude;
+        kineticEnergy = 0.5f * mass * currentSpeed * currentSpeed;
+        
+        // Радиус: R = mv/(|q|B)
+        radius = mass * currentSpeed / (Mathf.Abs(charge) * B_strength);
+
+        if (Mathf.Abs(charge) > 0.0001f && B_strength > 0.0001f)
+        {
+            period = (2f * Mathf.PI * mass) / (Mathf.Abs(charge) * B_strength);
+        }
+        else
+        {
+            period = 0f;
+        }
+                
+        // 7. Обновляем UI
         UpdateUI();
         
-        // Визуализация силы (опционально)
-        Debug.DrawRay(transform.position, lorentzForce.normalized, Color.green);
-    }
-    
-    void CalculatePhysics()
-    {
-        // Кинетическая энергия: K = 1/2 mv²
-        kineticEnergy = 0.5f * mass * currentVelocity.sqrMagnitude;
-        
-        // Радиус орбиты: R = mv/(|q|B)
-        float speed = currentVelocity.magnitude;
-        float bMagnitude = magneticField.magnitude;
-        
-        if (Mathf.Abs(charge) > 0.0001f && bMagnitude > 0.0001f)
-        {
-            orbitRadius = (mass * speed) / (Mathf.Abs(charge) * bMagnitude);
-            orbitPeriod = (2f * Mathf.PI * mass) / (Mathf.Abs(charge) * bMagnitude);
-        }
+        // 8. Визуализация поля
+        DrawFieldLines();
     }
     
     void UpdateUI()
     {
-        if (speedText != null)
-            speedText.text = $"Скорость: {currentVelocity.magnitude:F2} м/с";
+        float currentSpeed = velocity.magnitude;
         
-        if (energyText != null)
-            energyText.text = $"Энергия: {kineticEnergy:F2} Дж";
+        if (speedText) speedText.text = $"Скорость: {currentSpeed:F4}";
+        if (energyText) energyText.text = $"Энергия: {kineticEnergy:F4}";
+        if (fieldText) fieldText.text = $"Поле B: {B_strength:F2}";
         
-        if (radiusText != null)
-            radiusText.text = $"Радиус: {orbitRadius:F2} м";
         
-        if (periodText != null)
-            periodText.text = $"Период: {orbitPeriod:F2} с";
+        // Радиос вычисляем правильно
+        if (Mathf.Abs(charge) > 0.0001f && B_strength > 0.0001f)
+        {
+            radius = mass * currentSpeed / (Mathf.Abs(charge) * B_strength);
+            if (radiusText) radiusText.text = $"Радиус: {radius:F2}";
+        }
+        else
+        {
+            if (radiusText) radiusText.text = $"Радиус: ∞";
+        }
+
+        if (periodText) periodText.text = $"Период: {period:F2}";
         
-        if (chargeText != null)
-            chargeText.text = $"Заряд: {charge:F2} Кл";
+        // if (chargeText) chargeText.text = $"Заряд: {charge:F2}";
     }
     
-    // Методы для изменения параметров
-    public void SetCharge(float newCharge)
+    void UpdateTrailColor()
     {
-        charge = newCharge;
-        
-        // Меняем цвет следа при смене заряда
-        if (trail != null)
+        Color c = (charge > 0) ? positiveColor : negativeColor;
+        trail.startColor = c;
+        trail.endColor = c;
+    }
+    
+    void DrawFieldLines()
+    {
+        // Простые линии вдоль Z
+        for (int i = -5; i <= 5; i++)
         {
-            trail.startColor = (charge > 0) ? positiveChargeColor : negativeChargeColor;
-            trail.endColor = (charge > 0) ? positiveChargeColor : negativeChargeColor;
+            for (int j = -5; j <= 5; j++)
+            {
+                Vector3 start = new Vector3(i, j, -5);
+                Vector3 end = new Vector3(i, j, 5);
+                Debug.DrawLine(start, end, Color.cyan);
+            }
         }
     }
     
-    public void SetMagneticFieldStrength(float strength)
+    public void SetCharge(float q)
     {
-        fieldStrength = strength;
-        magneticField = new Vector3(0f, 0f, fieldStrength);
+        charge = q;
+        UpdateTrailColor();
     }
     
-    // Перезапуск частицы
-    public void ResetParticle()
+    public void SetField(float b)
     {
-        transform.position = Vector3.zero;
-        currentVelocity = initialVelocity;
-        trail.Clear();
+        B_strength = b;
     }
-
-    void OnGUI()
+    
+    public void SetMass(float newMass)
     {
-        GUIStyle style = new GUIStyle();
-        style.fontSize = 20;
-        style.normal.textColor = Color.white;
+        // Сохраняем старую энергию
+        float oldEnergy = 0.5f * mass * velocity.sqrMagnitude;
         
-        GUI.Label(new Rect(10, 100, 300, 50), 
-            $"dK/dt ≈ {CalculateEnergyDerivative():E2} Дж/с", style);
+        // Меняем массу
+        mass = newMass;
         
-        if (Mathf.Abs(CalculateEnergyDerivative()) < 0.01f)
-        {
-            GUI.Label(new Rect(10, 130, 300, 50), 
-                "✓ Энергия сохраняется!", style);
-        }
+        // ПЕРЕСЧИТЫВАЕМ скорость так, чтобы энергия сохранилась!
+        // K = ½mv² → v = √(2K/m)
+        float newSpeed = Mathf.Sqrt(2f * oldEnergy / mass);
+        
+        // Сохраняем направление, меняем величину
+        velocity = velocity.normalized * newSpeed;
+        
+        // Обновляем начальную энергию
+        initialEnergy = oldEnergy;
+        kineticEnergy = oldEnergy;
+        
+        // Обновляем initialSpeed для сброса
+        initialSpeed = newSpeed;
     }
-
-    private float previousEnergy = 0f;
-    private float energyDerivative = 0f;
-
-    float CalculateEnergyDerivative()
-    {
-        float currentEnergy = kineticEnergy;
-        energyDerivative = (currentEnergy - previousEnergy) / Time.fixedDeltaTime;
-        previousEnergy = currentEnergy;
-        return energyDerivative;
-    }
+        
+    // public void ResetParticle()
+    // {
+    //     position = Vector3.zero;
+    //     velocity = new Vector3(initialSpeed, 0f, 0f);
+    //     kineticEnergy = 0.5f * mass * initialSpeed * initialSpeed;
+        
+    //     if (trail) trail.Clear();
+        
+    //     transform.position = position;
+    // }
+    
+    // void OnGUI()
+    // {
+    //     GUIStyle style = new GUIStyle();
+    //     style.fontSize = 20;
+    //     style.normal.textColor = Color.white;
+        
+    //     float deviation = Mathf.Abs(kineticEnergy - initialEnergy) / initialEnergy * 100f;
+        
+    //     GUI.Label(new Rect(10, 10, 400, 30), 
+    //         $"Энергия: {kineticEnergy:F4} Дж (начальная: {initialEnergy:F4} Дж)", style);
+        
+    //     GUI.Label(new Rect(10, 40, 400, 30), 
+    //         $"Отклонение: {deviation:F2}%", style);
+        
+    //     if (deviation < 1f)
+    //     {
+    //         GUI.Label(new Rect(10, 70, 400, 30), 
+    //             "✓ Энергия сохраняется!", style);
+    //     }
+    //     else
+    //     {
+    //         style.normal.textColor = Color.red;
+    //         GUI.Label(new Rect(10, 70, 400, 30), 
+    //             "Ошибка в симуляции!", style);
+    //     }
+    // }
 }

@@ -11,7 +11,7 @@ public class FieldVisualizer : MonoBehaviour
     
     [Header("Визуализация")]
     public Color fieldColor = Color.cyan;
-    
+
     void Update()
     {
         DrawFieldLines();
