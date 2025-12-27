@@ -1,48 +1,29 @@
 using UnityEngine;
 
-// Скрипт пробного заряда.
-// Моделирует движение заряженной частицы
-// в электростатическом поле других зарядов.
+// Частица, которая движется под действием электрического поля
 public class TestCharge : MonoBehaviour
 {
-    // Величина пробного заряда q0
-    // Определяет, с какой силой поле действует на частицу
-    public float q0 = 1f;
-
-    // Масса пробного заряда
-    // Нужна для расчёта ускорения (второй закон Ньютона)
-    public float mass = 1f;
-
-    // Ссылка на систему электрического поля,
-    // которая знает все источники (Charge)
+    public float charge = 1f;      // Величина заряда частицы
+    public float mass = 1f;        // Масса частицы
     public ElectricFieldSystem fieldSystem;
 
-    // Текущая скорость пробного заряда
-    // Храним вручную, так как не используем Rigidbody
-    private Vector3 velocity;
+    private Vector3 currentVelocity;
 
-    // FixedUpdate вызывается с постоянным шагом времени
-    // Используется для физического моделирования
     void FixedUpdate()
     {
-        // Получаем напряжённость электрического поля
-        // в точке, где сейчас находится пробный заряд
-        Vector3 E = fieldSystem.GetField(transform.position);
+        if (fieldSystem == null) return;
 
-        // Вычисляем силу, действующую на пробный заряд:
-        // F = q0 * E
-        Vector3 F = q0 * E;
+        // Получаем поле в текущей позиции
+        Vector3 field = fieldSystem.GetTotalFieldAt(transform.position);
 
-        // Находим ускорение по второму закону Ньютона:
-        // a = F / m
-        Vector3 a = F / mass;
+        // Сила, действующая на частицу: F = q * E
+        Vector3 force = charge * field;
 
-        // Обновляем скорость методом Эйлера:
-        // v(t + dt) = v(t) + a * dt
-        velocity += a * Time.fixedDeltaTime;
+        // Ускорение по второму закону Ньютона: a = F / m
+        Vector3 acceleration = force / mass;
 
-        // Обновляем положение пробного заряда:
-        // r(t + dt) = r(t) + v * dt
-        transform.position += velocity * Time.fixedDeltaTime;
+        // Обновляем скорость и позицию
+        currentVelocity += acceleration * Time.fixedDeltaTime;
+        transform.position += currentVelocity * Time.fixedDeltaTime;
     }
 }

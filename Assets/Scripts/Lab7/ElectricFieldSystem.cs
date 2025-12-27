@@ -1,31 +1,23 @@
+
 using UnityEngine;
 
-// Класс системы электрического поля.
-// Отвечает за расчёт результирующей напряжённости поля
-// от всех зарядов в пространстве.
+// Управляет всеми зарядами и рассчитывает общее поле
 public class ElectricFieldSystem : MonoBehaviour
 {
-    // Массив всех источников электрического поля (зарядов).
-    // Каждый элемент массива — объект с компонентом Charge.
-    public Charge[] charges;
+    // Все заряды на сцене
+    public Charge[] allCharges;
 
-    // Метод возвращает вектор напряжённости электрического поля
-    // в произвольной точке пространства.
-    public Vector3 GetField(Vector3 point)
+    // Получить общую напряженность поля в точке
+    public Vector3 GetTotalFieldAt(Vector3 point)
     {
-        // Начальное значение результирующего поля равно нулю
-        Vector3 E = Vector3.zero;
+        Vector3 totalField = Vector3.zero;
 
-        // Проходим по всем зарядам в системе
-        foreach (Charge c in charges)
+        // Суммируем поля от всех зарядов
+        foreach (Charge charge in allCharges)
         {
-            // Складываем вклад напряжённости поля
-            // от каждого отдельного заряда
-            E += c.ElectricField(point);
+            totalField += charge.CalculateFieldAtPoint(point);
         }
 
-        // Возвращаем результирующее поле —
-        // векторную сумму полей всех зарядов
-        return E;
+        return totalField;
     }
 }

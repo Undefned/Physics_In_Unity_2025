@@ -1,31 +1,23 @@
+
 using UnityEngine;
 
-// Скрипт точечного электрического заряда.
-// Представляет источник электростатического поля.
+// Точечный электрический заряд - источник поля
 public class Charge : MonoBehaviour
 {
-    // Величина электрического заряда q.
-    // Знак заряда определяет направление поля:
-    // q > 0 — поле направлено от заряда
-    // q < 0 — поле направлено к заряду
-    public float q = 1f;
+    // Величина заряда (положительная или отрицательная)
+    public float chargeValue = 1f;
 
-    // Метод вычисляет вектор напряжённости электрического поля
-    // в заданной точке пространства point.
-    public Vector3 ElectricField(Vector3 point)
+    // Вычисляет напряженность поля в заданной точке
+    public Vector3 CalculateFieldAtPoint(Vector3 point)
     {
-        // Вектор от заряда к рассматриваемой точке:
-        // r = r_point - r_charge
-        Vector3 r = point - transform.position;
-
-        // Квадрат расстояния между зарядом и точкой.
-        // Добавляем малое число (0.01), чтобы избежать деления на ноль
-        // при совпадении точки с положением заряда.
-        float distanceSqr = r.sqrMagnitude + 0.01f;
-
-        // Формула напряжённости электрического поля точечного заряда:
-        // E = q * r̂ / r^2
-        // где r̂ — единичный вектор направления
-        return q * r.normalized / distanceSqr;
+        // Вектор от заряда к точке
+        Vector3 direction = point - transform.position;
+        
+        // Квадрат расстояния с защитой от деления на ноль
+        float distanceSquared = direction.sqrMagnitude + 0.01f;
+        
+        // Напряженность поля точечного заряда
+        // E = q * (r / |r|) / r²
+        return chargeValue * direction.normalized / distanceSquared;
     }
 }

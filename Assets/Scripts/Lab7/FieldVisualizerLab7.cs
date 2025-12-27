@@ -1,50 +1,35 @@
 using UnityEngine;
 
-// Скрипт визуализации электростатического поля.
-// Отображает поле как сетку стрелок (векторное поле) в Scene View.
+// Рисует стрелки электрического поля в редакторе Unity
 public class FieldVisualizerLab7 : MonoBehaviour
 {
-    // Ссылка на систему зарядов, которая умеет считать поле
+    // Система для расчета поля
     public ElectricFieldSystem fieldSystem;
 
-    // Размер области визуализации поля в единицах Unity
-    public float gridSize = 5f;
+    // Настройки сетки для визуализации
+    public float areaSize = 20f;     // Размер области от центра
+    public float gridStep = 1f;     // Шаг между точками
+    public float arrowSize = 1f;  // Длина стрелок
 
-    // Расстояние между точками сетки
-    public float step = 1f;
-
-    // Масштаб стрелок поля (чтобы они были видимыми, но не слишком большими)
-    public float arrowScale = 0.5f;
-
-    // Update вызывается каждый кадр
-    // Используется для динамической визуализации поля
     void Update()
     {
-        // Если ссылка на поле не установлена, ничего не делаем
         if (fieldSystem == null) return;
 
-        // Проходим по сетке точек XY в пределах [-gridSize, gridSize]
-        for (float x = -gridSize; x <= gridSize; x += step)
+        // Проходим по всем точкам сетки
+        for (float x = -areaSize; x <= areaSize; x += gridStep)
         {
-            for (float y = -gridSize; y <= gridSize; y += step)
+            for (float y = -areaSize; y <= areaSize; y += gridStep)
             {
-                // Текущая точка сетки, на которой будем рисовать поле
-                Vector3 point = new Vector3(x, y, 0);
+                Vector3 gridPoint = new Vector3(x, y, 0);
+                Vector3 field = fieldSystem.GetTotalFieldAt(gridPoint);
 
-                // Получаем вектор напряжённости электрического поля в этой точке
-                Vector3 E = fieldSystem.GetField(point);
-
-                // Если поле почти нулевое, стрелку рисовать не нужно
-                if (E.magnitude > 0.001f)
+                // Рисуем стрелку только если поле достаточно сильное
+                if (field.magnitude > 0.001f)
                 {
-                    // Рисуем стрелку в Scene View
-                    // point — начало стрелки
-                    // E.normalized * arrowScale — направление и длина
-                    // Color.green — цвет стрелки
                     Debug.DrawRay(
-                        point,
-                        E.normalized * arrowScale,
-                        Color.green
+                        gridPoint,
+                        field.normalized * arrowSize,
+                        Color.aquamarine
                     );
                 }
             }

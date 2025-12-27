@@ -24,6 +24,7 @@ public class TargetController : MonoBehaviour
             // Частица попала в мишень
             score++;
             UpdateScore();
+            Destroy(gameObject);
             
             // Эффект попадания
             // if (hitParticles != null)

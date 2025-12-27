@@ -12,7 +12,7 @@ public class LorentzForceParticle : MonoBehaviour
 
     
     [Header("Визуализация")]
-    public TrailRenderer trail;
+    private TrailRenderer trail;
     public Color positiveColor = Color.blue;
     public Color negativeColor = Color.red;
     
@@ -229,42 +229,4 @@ public class LorentzForceParticle : MonoBehaviour
         // Обновляем initialSpeed для сброса
         initialSpeed = newSpeed;
     }
-        
-    // public void ResetParticle()
-    // {
-    //     position = Vector3.zero;
-    //     velocity = new Vector3(initialSpeed, 0f, 0f);
-    //     kineticEnergy = 0.5f * mass * initialSpeed * initialSpeed;
-        
-    //     if (trail) trail.Clear();
-        
-    //     transform.position = position;
-    // }
-    
-    // void OnGUI()
-    // {
-    //     GUIStyle style = new GUIStyle();
-    //     style.fontSize = 20;
-    //     style.normal.textColor = Color.white;
-        
-    //     float deviation = Mathf.Abs(kineticEnergy - initialEnergy) / initialEnergy * 100f;
-        
-    //     GUI.Label(new Rect(10, 10, 400, 30), 
-    //         $"Энергия: {kineticEnergy:F4} Дж (начальная: {initialEnergy:F4} Дж)", style);
-        
-    //     GUI.Label(new Rect(10, 40, 400, 30), 
-    //         $"Отклонение: {deviation:F2}%", style);
-        
-    //     if (deviation < 1f)
-    //     {
-    //         GUI.Label(new Rect(10, 70, 400, 30), 
-    //             "✓ Энергия сохраняется!", style);
-    //     }
-    //     else
-    //     {
-    //         style.normal.textColor = Color.red;
-    //         GUI.Label(new Rect(10, 70, 400, 30), 
-    //             "Ошибка в симуляции!", style);
-    //     }
-    // }
 }
