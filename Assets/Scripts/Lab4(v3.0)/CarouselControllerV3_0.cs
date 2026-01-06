@@ -18,6 +18,9 @@ public class CarouselControllerV3_0 : MonoBehaviour
     private int currentlySelected = 0;      // Индекс выбранного груза
     private bool isSystemRotating = false;  // Флаг состояния вращения системы
 
+    [Header("Параметры затухания")]
+    public float angularDrag = 0.1f;  // Коэффициент сопротивления вращению
+
     private Vector3 preservedAngularMomentum = Vector3.zero; // Сохранённый угловой момент
     private Vector3 currentAngularVelocity = Vector3.zero;   // Текущая угловая скорость
     private float momentOfInertiaX = 0f;    // Момент инерции относительно оси X
@@ -162,6 +165,30 @@ public class CarouselControllerV3_0 : MonoBehaviour
     void ExecuteRotationPhysics()
     {
         if (!isSystemRotating) return;
+        
+        // Применяем естественное затухание
+        if (currentAngularVelocity.magnitude > 0)
+        {
+            // Уменьшаем угловую скорость
+            currentAngularVelocity -= currentAngularVelocity * angularDrag * Time.deltaTime;
+            
+            // Обновляем сохранённый момент импульса
+            Vector3 omegaLocal = transform.InverseTransformDirection(currentAngularVelocity);
+            Vector3 momentumLocal = new Vector3(
+                momentOfInertiaX * omegaLocal.x,
+                momentOfInertiaY * omegaLocal.y,
+                momentOfInertiaZ * omegaLocal.z
+            );
+            preservedAngularMomentum = transform.TransformDirection(momentumLocal);
+            
+            // Если скорость почти нулевая - останавливаем
+            if (currentAngularVelocity.magnitude < 0.05f)
+            {
+                currentAngularVelocity = Vector3.zero;
+                preservedAngularMomentum = Vector3.zero;
+                isSystemRotating = false;
+            }
+        }
 
         RecalculateSystemProperties();
         CalculateAngularVelocityFromConservation();
