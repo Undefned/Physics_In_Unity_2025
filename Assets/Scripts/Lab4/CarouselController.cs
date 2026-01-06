@@ -222,7 +222,7 @@ public class CarouselController : MonoBehaviour
         carouselRigidbody.automaticInertiaTensor = false;
 
         // Упрощенный расчет центра масс (раз центр известен = 0)
-        carouselRigidbody.centerOfMass = Vector3.zero;
+        carouselRigidbody.centerOfMass = new Vector3(0, 0, 0);
 
         // Расчет тензора инерции
         float I_platform = carouselRigidbody.mass * 1f; 
